@@ -7,7 +7,7 @@ import pandas as pd
 from functools import reduce
 from itertools import product
 
-def bootstrap(x, y, loss_fun, models, num_samples, binary_outcome=True):
+def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
     """
     Input:
         x - 2D numpy array with samples as rows and features as columns.
