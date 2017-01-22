@@ -64,3 +64,6 @@ d <- d %>%
 	group_by(Id) %>% 
 	mutate(sdTime=sd(Time)) %>%
 	mutate(meanTime=mean(Time))
+	
+d$ran_more_than_once <- d$num != 1
+
