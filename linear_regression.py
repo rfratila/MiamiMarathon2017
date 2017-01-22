@@ -119,17 +119,21 @@ def l2_norm(x, y):
 def hms2s(hms):
     return reduce(lambda acc, x: acc*60 + x, map(int, hms.split(":")))
 
-data = pd.read_csv("Project1_data.csv",
-                   converters={'Time': hms2s,
-                               'Pace': hms2s,})
-data['Year'] = data["Year"].astype('category', ordered=True)
-data = data.assign(num=data['Id'].map(dict(data['Id'].value_counts())).astype('float'))
-cols = data.columns.tolist()
-list(map(cols.remove, ['Name', 'Time', 'Pace']))
-data['Id'] = 1
+def main():
+    data = pd.read_csv("Project1_data.csv",
+                       converters={'Time': hms2s,
+                                   'Pace': hms2s,})
+    data['Year'] = data["Year"].astype('category', ordered=True)
+    data = data.assign(num=data['Id'].map(dict(data['Id'].value_counts())).astype('float'))
+    cols = data.columns.tolist()
+    list(map(cols.remove, ['Name', 'Time', 'Pace']))
+    data['Id'] = 1
 
-x = pd.get_dummies(data[cols]).as_matrix()
-y = data['Time'].as_matrix()
+    x = pd.get_dummies(data[cols]).as_matrix()
+    y = data['Time'].as_matrix()
 
 
-print(bootstrap(x, y, quad_loss, [fit_ols], 10))
+    print(bootstrap(x, y, quad_loss, [fit_ols], 10))
+
+if __name__ = "__main__":
+    main()
