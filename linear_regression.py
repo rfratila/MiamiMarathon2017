@@ -69,7 +69,8 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
                     pass
 
             in_test_set[test] = 1
-            y_hat = np.apply_along_axis(fit, 1, x_test)
+            y_hat = fit(x_test)
+
             loss[test] = loss_fun(y_test, y_hat)
             print("    done sample")
             return np.concatenate([in_test_set, loss])
@@ -77,9 +78,10 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
         n = len(x)
         q = math.pow(1 - 1/n, n)
         p = 1 - q
-
+        
         fit = fit_model(x, y)
-        y_hat = np.apply_along_axis(fit, 1, x)
+
+        y_hat = fit(x)
 
         all_samples = reduce(operator.add, map(one_sample, [n]*num_samples))
         in_test_set, loss = np.split(all_samples, 2)
@@ -95,8 +97,8 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
 
 
         if binary_outcome:
-            p1 = sum(map(lambda: t == 1, y))/n
-            q1 = sum(map(lambda: t == 1, y_hat))/n
+            p1 = sum(map(lambda t: t == 1, y))/n
+            q1 = sum(map(lambda t: t == 1, y_hat))/n
             gamma = p1 * (1 - q1) + q1 * (1 - p1)
         else:
             unary_loss = lambda a: loss_fun(*a)
@@ -135,5 +137,5 @@ def main():
 
     print(bootstrap(x, y, quad_loss, [fit_ols], 10))
 
-if __name__ = "__main__":
+if __name__ == "__main__":
     main()
