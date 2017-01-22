@@ -70,7 +70,6 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
 
             in_test_set[test] = 1
             y_hat = fit(x_test)
-
             loss[test] = loss_fun(y_test, y_hat)
             print("    done sample")
             return np.concatenate([in_test_set, loss])
@@ -80,7 +79,6 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
         p = 1 - q
         
         fit = fit_model(x, y)
-
         y_hat = fit(x)
 
         all_samples = reduce(operator.add, map(one_sample, [n]*num_samples))
@@ -115,8 +113,8 @@ def fit_ols(x, y):
 
     return lambda x: np.dot(x, beta)
 
-def l2_norm(x, y):
-    return (x-y)**2
+def l2_norm(y_hat, y):
+    return (y_hat-y)**2
 
 def hms2s(hms):
     return reduce(lambda acc, x: acc*60 + x, map(int, hms.split(":")))
@@ -129,13 +127,11 @@ def main():
     data = data.assign(num=data['Id'].map(dict(data['Id'].value_counts())).astype('float'))
     cols = data.columns.tolist()
     list(map(cols.remove, ['Name', 'Time', 'Pace']))
-    data['Id'] = 1
 
     x = pd.get_dummies(data[cols]).as_matrix()
     y = data['Time'].as_matrix()
 
-
-    print(bootstrap(x, y, quad_loss, [fit_ols], 10))
+    print(bootstrap(x, y, l2_norm, [fit_ols], 10, False))
 
 if __name__ == "__main__":
     main()

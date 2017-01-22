@@ -1,0 +1,4 @@
+dates: http://www.marathonguide.com/
+weather: https://www.wunderground.com/history/airport/KMIA
+flu in week before: http://www.floridahealth.gov/diseases-and-conditions/influenza/florida-influenza-surveillance-reports/index.html
+
