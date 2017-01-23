@@ -114,7 +114,7 @@ def fit_ols(x, y):
     return lambda x: np.dot(x, beta)
 
 def l2_norm(y_hat, y):
-    return (y_hat-y)**2
+    return (y_hat - y)**2
 
 def hms2s(hms):
     return reduce(lambda acc, x: acc*60 + x, map(int, hms.split(":")))

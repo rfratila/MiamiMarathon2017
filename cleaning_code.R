@@ -65,5 +65,5 @@ d <- d %>%
 	mutate(sdTime=sd(Time)) %>%
 	mutate(meanTime=mean(Time))
 	
-d$ran_more_than_once <- d$num != 1
+d$ran_more_than_once <- as.integer(d$num != 1)
 
