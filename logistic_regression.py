@@ -5,6 +5,8 @@ import math
 from linear_regression import bootstrap
 from functools import partial
 import time
+from collections import OrderedDict
+import pylab
 
 def sigmoid(weight,data):
 	prob = 1/(1 + numpy.exp( -numpy.dot(data,weight) ))
@@ -30,9 +32,22 @@ def get_new_weight(alpha,y,weight,data):
 	return new_w
 
 def train(alpha,weight,data,y):
-	for i in xrange(2):
+	#numpy.random.shuffle(data)
+	store = OrderedDict(error=[],iteration=[])
+	for i in xrange(100):
+		store['error'].append(error_function(y,weight,data)[0][0])
+		store['iteration'].append(i)
 		weight = get_new_weight(alpha,y,weight,data)
-	return weight
+
+	pylab.plot(store['iteration'],store['error'], '-ro',label='Training Error')
+	pylab.xlabel("Iteration")
+	pylab.ylabel("Error")
+	pylab.legend(loc='upper right')
+	pylab.title('Alpha is %.2g'%alpha)
+	print 'Most recent error:',store['error'][-1]
+	print 'Standard deviation between iterations 50 and 100:', numpy.std(store['error'][50:])
+	
+	#return weight
 
 	#return lambda in_data: sigmoid(weight,in_data)
 
@@ -40,7 +55,7 @@ def train(alpha,weight,data,y):
 def cross_validate(k,alpha,weight,data,y):
 	numpy.random.shuffle(data)
 	
-	chunk = k
+	chunk = data.shape[0]/k
 	i=0
 	avg_error = 0
 	collection_weights = []
@@ -54,7 +69,7 @@ def cross_validate(k,alpha,weight,data,y):
 		trained_weight = train(alpha,weight,train_data,train_y)
 		collection_weights.append(trained_weight)
 		error = 0
-		#print ('Testing on chunk [%d,%d]. Training on the rest...'%(chunk*i,chunk*i + chunk))
+		print ('Testing on chunk [%d,%d]. Training on the rest...'%(chunk*i,chunk*i + chunk))
 		for index,test_case in enumerate(test_data):
 			error += error_function(test_y[index],trained_weight,test_case)
 			#print error_function(test_y[index],trained_weight,test_case)
@@ -73,26 +88,33 @@ def main():
 	training_reserve = 0.7
 	validation_reserve = 0.2
 	testing_reserve = 0.1
-	alpha = [0.01,0.1,1,10,100]           #learning rate
+	alpha = [1e9,1e8,1e7,1e6,1e5,1e4,1e3,1e2,1e1,1e0,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10]           #learning rate
 	my_data = pandas.read_csv('full_data.csv',sep=',')
 
-	#d = numpy.random.random((10000,1))
+	
 	#data = numpy.array([my_data['Age Category']]).transpose()
 	data = numpy.array([my_data[my_data['Year'] != 2016]['Age Category'],
-						my_data[my_data['Year'] != 2016]['Time'],
-						my_data[my_data['Year'] != 2016]['day_no']]).transpose()#[:200]
-	
+						
+						]).transpose()
+
+	#data = numpy.random.random((data.shape))
 	d = numpy.concatenate((data,numpy.ones((data.shape[0],1))),axis=1) #for the intercept weight
 
 	w = numpy.random.random((d.shape[1],1))
-	y = numpy.array([my_data[my_data['Year'] != 2016]['ran_more_than_once']]).transpose()#[:200]
-
+	y = numpy.array([my_data[my_data['Year'] != 2016]['ran_more_than_once']]).transpose()
+	#y = numpy.ones((y.shape))
 	my_train = partial(train,alpha,w)
 	
-	train(alpha,w,d,y)
+	#train(0.0001,w,d,y)
+	init_val = 1
 	for a in alpha:
-		coll = cross_validate(10,a,w,d,y)
-		import pudb; pu.db
+		pylab.subplot(5,4,init_val)
+		train(a,w,d,y) # for Age Category
+		init_val+=1
+	pylab.show()
+	#for a in alpha:
+	#	coll = cross_validate(10,a,w,d,y)
+		
 	#print bootstrap(d,y,functional_error,[my_train],num_samples=10)
 	
 	
