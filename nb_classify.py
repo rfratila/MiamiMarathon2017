@@ -82,10 +82,21 @@ def bnb_classify(training_data, target_data):
         likelihoods[col] = pd.crosstab(training_data["Year_2016"],training_data[col]).apply(lambda r: r/r.sum(), axis=1)
 
     print likelihoods
-    return prediction
+    # where I left things
+    # need to estimate probabilities of each category and return class label
+    # loop through attributes used for categorization and calculate their likelihoods
+    # crate a dataframe of all of them
+    # label the class based on teh highest probability
+    # return prediction
+
 
 #def bnb_tester:
-#   return accuracy
+    # read testing data
+    # move testing[year 2016] into seperate dataframe
+    # run bnb_classify on testing data
+    # take returned prediction array (dataframe?) and compare to testing[20160
+    # calculate percent correct
+    # return accuracy
 
 def main():
     # import data
