@@ -85,7 +85,7 @@ def bnb_classify(training_data, target_data):
     # where I left things
     # need to estimate probabilities of each category and return class label
     # loop through attributes used for categorization and calculate their likelihoods
-    # crate a dataframe of all of them
+    # create a dataframe of all of them
     # label the class based on teh highest probability
     # return prediction
 
