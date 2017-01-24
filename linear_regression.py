@@ -67,11 +67,14 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
 
                     fit = fit_model(x_train, y_train)
                 except np.linalg.linalg.LinAlgError as e:
+                    print("lin_alg_error")
                     pass
 
             in_test_set[test] = 1
             y_hat = fit(x_test)
-            loss[test] = loss_fun(y_hat, y)
+
+            loss[test] = loss_fun(y_hat, y_test)
+
             print("    done sample")
             return np.concatenate([in_test_set, loss])
 
@@ -79,8 +82,12 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
         q = math.pow(1 - 1/n, n)
         p = 1 - q
         
+        print("fitting overall model")
+
         fit = fit_model(x, y)
         y_hat = fit(x)
+
+        print("done overall fit")
 
         all_samples = reduce(operator.add, map(one_sample, [n]*num_samples))
         in_test_set, loss = np.split(all_samples, 2)
@@ -101,9 +108,10 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
             q1 = sum(map(lambda t: t == 1, y_hat))/n
             gamma = p1 * (1 - q1) + q1 * (1 - p1)
         else:
-            unary_loss = lambda a: loss_fun(*a)
-            loss_vector = map(unary_loss, itertools.product(y_hat, y))
-            gamma = sum(loss_vector)/n/n
+            gamma = err_1
+            # unary_loss = lambda a: loss_fun(*a)
+            # loss_vector = map(unary_loss, itertools.product(y_hat, y))
+            # gamma = sum(loss_vector)/n/n
         
         if err_1 > err_bar and gamma > err_bar:
             r = (err_1 - err_bar)/(gamma - err_bar)
@@ -134,19 +142,24 @@ def fit_bnb(x, y, cols=None):
     cond_probs = np.array(list(map(prob_c, range(2))))
     log_probs = np.transpose(np.log(cond_probs))
 
-    return lambda x: np.argmax([p0, p1] + np.dot(x[:,cols], log_probs), 1)
+    argmax = lambda x: np.argmax(x, 1).reshape(len(x), 1)
+
+    return lambda x: argmax([p0, p1] + np.dot(x[:,cols], log_probs))
 
 def fit_cols_bnb(cols):
     return partial(fit_bnb, cols=cols)
 
-def fit_ols(x, y):
+def fit_ols(x, y, cols=None):
+    if cols is None: cols = np.arange(len(x[0]))
+    x = x[:,cols]
+
     xtx_1 = np.linalg.inv(np.dot(np.transpose(x), x))
     beta = np.dot(np.dot(xtx_1, np.transpose(x)), y)
 
-    return lambda x: np.dot(x, beta)
+    return lambda x: np.dot(x[:,cols], beta)
 
 def fit_cols(cols):
-    return lambda x, y: fit_ols(x[cols], y)
+    return partial(fit_ols, cols=cols)
 
 def l2_norm(y_hat, y):
     return (y_hat - y)**2
@@ -183,12 +196,14 @@ def main():
                   ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime"],
                   ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7", "sdTime:num_1", "sdTime:num_2", "sdTime:num_3", "sdTime:num_4", "sdTime:num_5", "sdTime:num_6", "sdTime:num_7", "sdTime:num_>7", "ageFactor_[10,20)", "ageFactor[20,30)", "ageFactor[30,40)", "ageFactor[40,50)", "ageFactor[50,60)", "ageFactor[60,70)", "ageFactor[70,80)", "ageFactor[80,90)", "ageFactor[90,100]"]
                  ]
-
     model_cols_bnb = [["Intercept"]]
+    
+    models = map(fit_cols, map(col_inds, model_cols))
     models_bnb = map(fit_cols_bnb, map(col_inds, model_cols_bnb))
-    print(bootstrap(x, y_bnb, l2_norm, models_bnb, 10))
+    
 
-    # print(bootstrap(x, y, l2_norm, map(fit_cols, models), 10, False))
+    # print(bootstrap(x, y_bnb, l2_norm, models_bnb, 10))
+    print(bootstrap(x, y, l2_norm, models, 10, False))
 
 if __name__ == "__main__":
     main()
