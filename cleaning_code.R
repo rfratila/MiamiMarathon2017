@@ -18,7 +18,7 @@ levels(d$num) <- c("1","2","3","4","5","6","7",">7",">7",">7",">7",">7",">7",">7
 d$ageFactor <- cut(d$`Age Category`, breaks=c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100), include.lowest=TRUE, right=FALSE)
 d[d$ageFactor == "[0,10)",]$ageFactor <- NA
 
-d$day_no <- rep(NA, length(d$Sex))
+d$day_no <- rep(0, length(d$num))
 d$day_no[d$Year %in% c('2012', '2006')] <- 29
 d$day_no[d$Year %in% c('2011', '2005')] <- 30 
 d$day_no[d$Year %in% c('2010')] <- 31
@@ -30,7 +30,7 @@ d$day_no[d$Year %in% c('2004')] <- 32
 d$day_no[d$Year %in% c('2016')] <- 24
 
 
-d$temp <- rep(NA, length(d$Sex))
+d$temp <- rep(0, length(d$num))
 d$temp[d$Year=='2003'] <- 62
 d$temp[d$Year=='2004'] <- 74
 d$temp[d$Year=='2005'] <- 70
@@ -46,7 +46,7 @@ d$temp[d$Year=='2014'] <- 76
 d$temp[d$Year=='2015'] <- 60
 d$temp[d$Year=='2016'] <- 54
 
-d$flu <- rep(NA, length(d$Sex))
+d$flu <- rep(0, length(d$num))
 d$flu[d$Year=='2005'] <- 2.37
 d$flu[d$Year=='2006'] <- 2.76
 d$flu[d$Year=='2007'] <- 1.2
@@ -66,4 +66,4 @@ d <- d %>%
 	mutate(meanTime=mean(Time))
 	
 d$ran_more_than_once <- as.integer(d$num != 1)
-
+d$sdTime[is.na(d$sdTime)] <- mean(d$sdTime, na.rm=TRUE)
