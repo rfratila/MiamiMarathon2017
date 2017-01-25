@@ -23,7 +23,7 @@ def timeit(f, s):
 
     return x
 
-def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
+def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metrics=None):
     """
     Input:
         x - pandas DataFrame with samples as rows and features as columns.
@@ -99,6 +99,8 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
         fit = timeit(lambda:fit_model(x, y), "fitting overall model")
         y_hat = fit(x)
 
+        if metrics is not None: metrics(y_hat, y)
+
         time_sample = lambda x: timeit(lambda:one_sample(n), "Running sample")
         all_samples = reduce(operator.add, 
                              map(time_sample, range(num_samples)))
@@ -111,7 +113,7 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
             in_test_set = in_test_set[good_indices]
 
         err_1 = np.mean(loss/in_test_set)
-        err_bar = np.mean(list(map(loss_fun, y_hat, y)))
+        err_bar = np.mean(loss_fun(y_hat, y))
         err_632 = q * err_bar + p * err_1
 
 
@@ -216,6 +218,9 @@ def fit_nb(x, y, cols=None):
 
     return predict
 
+def fit_random(x, y):
+    return lambda x: np.random.randint(2, size=(len(x), 1))
+
 def fit_cols_nb(cols):
     return partial(fit_nb, cols=cols)
 
@@ -270,10 +275,10 @@ def main():
     model_cols_nb = [["Intercept"]]
     
     models = map(fit_cols, map(col_inds, model_cols))
-    models_nb = map(fit_cols_nb, map(col_inds, model_cols_nb))
+    models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
     
 
-    print(bootstrap(x, y_bnb, sq_err, models_nb, 10))
+    print(bootstrap(x, y_nb, sq_err, [fit_random], 10))
     # print(bootstrap(x, y, sq_err, models, 10, False))
 
 if __name__ == "__main__":
