@@ -7,6 +7,20 @@ import itertools
 
 from functools import reduce, partial
 from sklearn.preprocessing import PolynomialFeatures
+from scipy.stats import norm
+
+def timeit(f, s):
+    big_s = s[0].upper() + s[1:]
+    small_s = s[0].lower() + s[1:]
+
+    logger.info("{}...".format(big_s))
+
+    t = time.time()
+    x = f()
+
+    logger.info("Done {} in {}s.".format(small_s, time.time() - t))
+
+    return x
 
 def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
     """
@@ -89,7 +103,9 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
 
         print("done overall fit")
 
-        all_samples = reduce(operator.add, map(one_sample, [n]*num_samples))
+        time_sample = lambda x: timeit(lambda:one_sample(n), "Running sample")
+        all_samples = reduce(operator.add, 
+                             map(time_sample, range(num_samples)))
         in_test_set, loss = np.split(all_samples, 2)
 
         if any(in_test_set == 0):
@@ -125,29 +141,86 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
 
     return np.array(list(map(boot_error, models)))
 
-def fit_bnb(x, y, cols=None):
+# def fit_nb(x, y, cols=None):
+
+#     if cols is None: cols = np.arange(len(x[0]))
+#     x = x[:,cols]
+
+#     p1 = np.mean(y) # probability(y == 1)
+#     p = [1-p1, p1]
+
+#     def prob_c(cls):
+#         def bernoulli(col):
+#             rows = np.where(y == cls)[0]
+#             return (np.sum(x[rows, col]) + 1) / (len(rows) + 2)
+#         return np.array(list(map(bernoulli, range(len(cols)))))
+
+#     cond_probs = np.array(list(map(prob_c, range(2))))
+#     log_probs = np.transpose(np.log(cond_probs))
+
+#     argmax = lambda x: np.argmax(x, 1).reshape(len(x), 1)
+
+#     return lambda x: argmax(np.log(p) + np.dot(x[:,cols], log_probs))
+
+def fit_nb(x, y, cols=None):
 
     if cols is None: cols = np.arange(len(x[0]))
     x = x[:,cols]
+    m = len(cols)
 
-    def prob_c(cls):
-        def cond_prob(col):
+    p1 = np.mean(y) # probability(y == 1)
+    p = [1-p1, p1]
+
+    def log_cond_prob(cls):
+        def bernoulli(col):
             rows = np.where(y == cls)[0]
-            return np.mean(x[rows, col]) if len(rows) else 0
-        return np.array(list(map(cond_prob, range(len(cols)))))
+            p_x1 = (np.sum(x[rows, col]) + 1) / (len(rows) + 2)
+            return lambda v: p_x1 if v else 1 - p_x1
+        def multinomial(col):
+            rows = np.where(y != cls)[0]
+            vals = np.sort(np.unique(x[:,col]))
+            def p_val_given_c(val):
+                num = len(np.where(x[rows, col] == val)[0])
+                return (num + 1) / (len(rows) + 2)
+            p = {val:p_val_given_c(val) for val in vals}
+            return lambda v: p[v]
+        def normal(col):
+            rows = np.where(y != cls)[0]
+            mean = np.mean(x[rows,col])
+            var = np.var(x[rows,col])
+            return partial(norm.pdf, loc=mean, scale=var)
+        def log_prob_fun(col):
+            """
+            Chooses between bernoulli, multinomial, and normal column types.
+            """
+            vals = np.sort(np.unique(x[:,col]))
+            k = len(vals)
 
-    p1 = np.mean(y)
-    p0 = 1 - p1
+            if k == 2:
+                f = bernoulli
+            elif all(vals == np.arange(k)) or all(vals == np.arange(1, k+1)):
+                f = multinomial
+            else:
+                f = normal
+            return lambda x: np.log(f(col)(x))
+        return np.array(list(map(log_prob_fun, range(len(cols)))))
 
-    cond_probs = np.array(list(map(prob_c, range(2))))
-    log_probs = np.transpose(np.log(cond_probs))
+    log_probs = np.array(list(map(log_cond_prob, range(2))))
+    f = lambda i: lambda xi: sum(map(lambda j: log_probs[i,j](xi[j]), range(m)))
 
-    argmax = lambda x: np.argmax(x, 1).reshape(len(x), 1)
+    def predict(x):
+        argmax = lambda x: np.argmax(x, 1).reshape(len(x), 1)
+        x = x[:,cols]
 
-    return lambda x: argmax([p0, p1] + np.dot(x[:,cols], log_probs))
+        cond_prob = lambda i: np.apply_along_axis(f(i), 1, x)
+        cond_probs = np.array(list(map(cond_prob, range(2)))).transpose()
 
-def fit_cols_bnb(cols):
-    return partial(fit_bnb, cols=cols)
+        return argmax(np.log(p) + cond_probs)
+
+    return predict
+
+def fit_cols_nb(cols):
+    return partial(fit_nb, cols=cols)
 
 def fit_ols(x, y, cols=None):
     if cols is None: cols = np.arange(len(x[0]))
@@ -161,7 +234,7 @@ def fit_ols(x, y, cols=None):
 def fit_cols(cols):
     return partial(fit_ols, cols=cols)
 
-def l2_norm(y_hat, y):
+def sq_err(y_hat, y):
     return (y_hat - y)**2
 
 def hms2s(hms):
@@ -186,6 +259,7 @@ def main():
     cols = list(itertools.chain.from_iterable(map(i_combs, range(1,d+1))))
     cols.insert(0, "Intercept")
     cols = np.array(cols)
+
     # x = pd.DataFrame(x, columns=cols).as_matrix()
     col_inds = lambda names: sum(np.where(cols == name)[0] for name in names)
     model_cols = [["Intercept"], 
@@ -196,14 +270,14 @@ def main():
                   ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime"],
                   ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7", "sdTime:num_1", "sdTime:num_2", "sdTime:num_3", "sdTime:num_4", "sdTime:num_5", "sdTime:num_6", "sdTime:num_7", "sdTime:num_>7", "ageFactor_[10,20)", "ageFactor[20,30)", "ageFactor[30,40)", "ageFactor[40,50)", "ageFactor[50,60)", "ageFactor[60,70)", "ageFactor[70,80)", "ageFactor[80,90)", "ageFactor[90,100]"]
                  ]
-    model_cols_bnb = [["Intercept"]]
+    model_cols_nb = [["Intercept"]]
     
     models = map(fit_cols, map(col_inds, model_cols))
-    models_bnb = map(fit_cols_bnb, map(col_inds, model_cols_bnb))
+    models_nb = map(fit_cols_nb, map(col_inds, model_cols_nb))
     
 
-    # print(bootstrap(x, y_bnb, l2_norm, models_bnb, 10))
-    print(bootstrap(x, y, l2_norm, models, 10, False))
+    print(bootstrap(x, y_bnb, sq_err, models_nb, 10))
+    # print(bootstrap(x, y, sq_err, models, 10, False))
 
 if __name__ == "__main__":
     main()
