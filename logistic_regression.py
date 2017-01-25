@@ -80,7 +80,7 @@ def cross_validate(k,alpha,weight,data,y):
 
 	avg_error /= (data.shape[0]/k)   #Divide by the total amount of folds trained on
 
-	print "Average error of",avg_error,"where the alpha is", alpha, "in",time.time()-start_time,"seconds"
+	print("Average error of",avg_error,"where the alpha is", alpha, "in",time.time()-start_time,"seconds")
 
 	return collection_weights
 
@@ -90,7 +90,7 @@ def calculate_metrics(y_hat,y):
 	FP = numpy.sum(numpy.logical_and(y_hat == 1, y ==0))
 	FN = numpy.sum(numpy.logical_and(y_hat == 0, y ==1))
 
-	print ('TP: %i, FP: %i, TN: %i, FN: %i' % (TP,FP,TN,FN))
+	print('TP: {}, FP: {}, TN: {}, FN: {}'.format(TP,FP,TN,FN))
 
 	accuracy = float(TP + TN)/(TP + FP + FN + TN)
 	precision = float(TP)/(TP + FP)
@@ -99,11 +99,11 @@ def calculate_metrics(y_hat,y):
 	f1 = 2 * (precision*recall)/(precision+recall)
 
 	
-	print ("Accuracy: %.2f"%accuracy)
-	print ("Precision: %.2f"%precision)
-	print ("Recall: %.2f"%recall)
-	print ("False positive rate: %.2f"%false_positive_rate)
-	print ("F1 measure: %.2f"%f1)
+	print("Accuracy: {:.2f}".format(accuracy))
+	print("Precision: {:.2f}".format(precision))
+	print("Recall: {:.2f}".format(recall))
+	print("False positive rate: {:.2f}".format(false_positive_rate))
+	print("F1 measure: {:.2f}".format(f1))
 
 def main():
 	training_reserve = 0.7
@@ -147,7 +147,7 @@ def main():
 	#for a in alpha:
 	#	coll = cross_validate(10,a,w,d,y)
 	'''
-	print bootstrap(d,y,functional_error,[my_train],num_samples=200)
+	print(bootstrap(d,y,functional_error,[my_train],num_samples=200))
 	
 	
 		

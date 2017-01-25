@@ -277,8 +277,7 @@ def main():
     models = map(fit_cols, map(col_inds, model_cols))
     models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
     
-
-    print(bootstrap(x, y_nb, sq_err, [fit_random], 10))
+    print(bootstrap(x, y_nb, sq_err, [fit_random], 10, metrics=metrics))
     # print(bootstrap(x, y, sq_err, models, 10, False))
 
 if __name__ == "__main__":
