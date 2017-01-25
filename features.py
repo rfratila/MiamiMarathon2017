@@ -31,6 +31,7 @@ def get_number_of_years_since_last_marathon(data):
     for index, rows in data.iterrows():
         agefactor = rows["ageFactor"]
     print data.ageFactor.unique()
+
 '''
 def get_age_factor_at_last_marathon(data):
     # find there last marathon
