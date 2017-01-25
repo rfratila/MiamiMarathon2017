@@ -14,7 +14,7 @@ d <- d %>%
 	filter(Year!=2013)
 
 d$ageFactor <- cut(d$`Age Category`, breaks=c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100), include.lowest=TRUE, right=FALSE)
-d[d$ageFactor == "[0,10)",]$ageFactor <- NA
+d <- d %>% filter(ageFactor != "[0,10)")
 
 d$day_no <- rep(0, length(d$Year))
 d$day_no[d$Year %in% c('2012', '2006')] <- 29
