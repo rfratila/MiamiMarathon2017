@@ -13,12 +13,12 @@ def timeit(f, s):
     big_s = s[0].upper() + s[1:]
     small_s = s[0].lower() + s[1:]
 
-    logger.info("{}...".format(big_s))
+    print("{}...".format(big_s))
 
     t = time.time()
     x = f()
 
-    logger.info("Done {} in {}s.".format(small_s, time.time() - t))
+    print("Done {} in {}s.".format(small_s, time.time() - t))
 
     return x
 
@@ -89,19 +89,14 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True):
 
             loss[test] = loss_fun(y_hat, y_test)
 
-            print("    done sample")
             return np.concatenate([in_test_set, loss])
 
         n = len(x)
         q = math.pow(1 - 1/n, n)
         p = 1 - q
         
-        print("fitting overall model")
-
-        fit = fit_model(x, y)
+        fit = timeit(lambda:fit_model(x, y), "fitting overall model")
         y_hat = fit(x)
-
-        print("done overall fit")
 
         time_sample = lambda x: timeit(lambda:one_sample(n), "Running sample")
         all_samples = reduce(operator.add, 
@@ -177,7 +172,7 @@ def fit_nb(x, y, cols=None):
             p_x1 = (np.sum(x[rows, col]) + 1) / (len(rows) + 2)
             return lambda v: p_x1 if v else 1 - p_x1
         def multinomial(col):
-            rows = np.where(y != cls)[0]
+            rows = np.where(y == cls)[0]
             vals = np.sort(np.unique(x[:,col]))
             def p_val_given_c(val):
                 num = len(np.where(x[rows, col] == val)[0])
@@ -206,7 +201,8 @@ def fit_nb(x, y, cols=None):
         return np.array(list(map(log_prob_fun, range(len(cols)))))
 
     log_probs = np.array(list(map(log_cond_prob, range(2))))
-    f = lambda i: lambda xi: sum(map(lambda j: log_probs[i,j](xi[j]), range(m)))
+
+    f = lambda i: lambda xi: sum(log_probs[i,j](xi[j]) for j in range(m))
 
     def predict(x):
         argmax = lambda x: np.argmax(x, 1).reshape(len(x), 1)
