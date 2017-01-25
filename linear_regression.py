@@ -77,18 +77,16 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
                 try:
                     train = np.random.choice(n, n)
                     test = np.setdiff1d(np.arange(n), train)
-                    x_train, y_train = x[train], y[train]
-                    x_test, y_test = x[test], y[test]
 
-                    fit = fit_model(x_train, y_train)
+                    fit = fit_model(x[train], y[train])
                 except np.linalg.linalg.LinAlgError as e:
                     print("lin_alg_error")
                     pass
 
             in_test_set[test] = 1
-            y_hat = fit(x_test)
+            y_hat = fit(x[test])
 
-            loss[test] = loss_fun(y_hat, y_test)
+            loss[test] = loss_fun(y_hat, y[test])
 
             return np.concatenate([in_test_set, loss])
 
@@ -116,13 +114,12 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
         err_bar = np.mean(loss_fun(y_hat, y))
         err_632 = q * err_bar + p * err_1
 
-
         if binary_outcome:
             p1 = sum(map(lambda t: t == 1, y))/n
             q1 = sum(map(lambda t: t == 1, y_hat))/n
             gamma = p1 * (1 - q1) + q1 * (1 - p1)
         else:
-            gamma = err_1
+            gamma = err_bar
             # unary_loss = lambda a: loss_fun(*a)
             # loss_vector = map(unary_loss, itertools.product(y_hat, y))
             # gamma = sum(loss_vector)/n/n
@@ -133,11 +130,11 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
             r = 0
 
         err1_ = min(err_1, gamma)
-        print("done model")
 
         return err_632 + (err1_ - err_bar) * (p * q * r) / (1 - q * r)
 
-    return np.array(list(map(boot_error, models)))
+    timed_model = lambda model: timeit(boot_error(model), "model")
+    return np.array(list(map(timed_model, models)))
 
 # def fit_nb(x, y, cols=None):
 
@@ -183,7 +180,7 @@ def fit_nb(x, y, cols=None):
             p = {val:p_val_given_c(val) for val in vals}
             return lambda v: p[v]
         def normal(col):
-            rows = np.where(y != cls)[0]
+            rows = np.where(y == cls)[0]
             mean = np.mean(x[rows,col])
             var = np.var(x[rows,col])
             return partial(norm.pdf, loc=mean, scale=var)
@@ -245,40 +242,50 @@ def hms2s(hms):
 def main():
     data = pd.read_csv("full_data.csv")
     data['Year'] = data["Year"].astype('category', ordered=True)
+    data['Id'] = data["Id"].astype('category', ordered=False)
     cols = data.columns.tolist()
-    list(map(cols.remove, ["Age Category", "Id", "Year"]))
+    list(map(cols.remove, ["Age Category", "Year"]))
     x = pd.get_dummies(data[cols])
     cols = x.columns.tolist()
     y = data[['Time']].as_matrix()
     y_nb = data[['ran_more_than_once']].as_matrix()
 
-    d = 3
-    poly = PolynomialFeatures(degree=d, interaction_only=True)
-    x = poly.fit_transform(x)
+    # d = 3
+    # poly = PolynomialFeatures(degree=d, interaction_only=True)
+    # x = poly.fit_transform(x)
 
-    merge = lambda comb: ":".join(comb)
-    i_combs = lambda i: map(merge, itertools.combinations(cols, i))
-    cols = list(itertools.chain.from_iterable(map(i_combs, range(1,d+1))))
-    cols.insert(0, "Intercept")
-    cols = np.array(cols)
+    # merge = lambda comb: ":".join(comb)
+    # i_combs = lambda i: map(merge, itertools.combinations(cols, i))
+    # cols = list(itertools.chain.from_iterable(map(i_combs, range(1,d+1))))
+    # cols.insert(0, "Intercept")
+    # cols = np.array(cols)
+
+    x = x.as_matrix()
 
     # x = pd.DataFrame(x, columns=cols).as_matrix()
     col_inds = lambda names: sum(np.where(cols == name)[0] for name in names)
     model_cols = [["Intercept"], 
                   ["Intercept", "Year"],
-                  ["Intercept", "meanTime"],
-                  ["meanTime"],
+                  # ["Intercept", "meanTime"],
+                  # ["meanTime"],
                   ["Intercept", "sdTime"],
-                  ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime"],
-                  ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7", "sdTime:num_1", "sdTime:num_2", "sdTime:num_3", "sdTime:num_4", "sdTime:num_5", "sdTime:num_6", "sdTime:num_7", "sdTime:num_>7", "ageFactor_[10,20)", "ageFactor[20,30)", "ageFactor[30,40)", "ageFactor[40,50)", "ageFactor[50,60)", "ageFactor[60,70)", "ageFactor[70,80)", "ageFactor[80,90)", "ageFactor[90,100]"]
+                  # ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime"],
+                  # ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7", "sdTime:num_1", "sdTime:num_2", "sdTime:num_3", "sdTime:num_4", "sdTime:num_5", "sdTime:num_6", "sdTime:num_7", "sdTime:num_>7", "ageFactor_[10,20)", "ageFactor[20,30)", "ageFactor[30,40)", "ageFactor[40,50)", "ageFactor[50,60)", "ageFactor[60,70)", "ageFactor[70,80)", "ageFactor[80,90)", "ageFactor[90,100]"]
                  ]
-    model_cols_nb = [["Intercept"]]
+    id_cols = list(filter(lambda p: "Id_" in p, cols))
+    model_cols.append(["Intercept"]+id_cols)
+
+    """9.2, 278, 6.9, 6.9, 51, 276, 278"""
+    """[array([ 9205624.78741515]) 277616936.81465369 array([ 6877981.18524548]) array([ 6877915.45953581]) array([ 51583531.97679356]) array([  2.75695881e+08]) 277616936.81465369]"""
+    model_cols_nb = [["Intercept"],
+                     ["Intercept", "sdTime"],
+                    ]
     
     models = map(fit_cols, map(col_inds, model_cols))
     models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
     
-    print(bootstrap(x, y_nb, sq_err, [fit_random], 10, metrics=metrics))
-    # print(bootstrap(x, y, sq_err, models, 10, False))
+    # print(bootstrap(x, y_nb, sq_err, [fit_random], 10, metrics=metrics))
+    print(bootstrap(x, y, sq_err, models, 200, False))
 
 if __name__ == "__main__":
     main()
