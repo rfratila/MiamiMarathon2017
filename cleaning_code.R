@@ -45,6 +45,8 @@ d$temp[d$Year=='2015'] <- 60
 d$temp[d$Year=='2016'] <- 54
 
 d$flu <- rep(0, length(d$Year))
+d$flu[d$Year=='2003'] <- 0
+d$flu[d$Year=='2004'] <- 0
 d$flu[d$Year=='2005'] <- 2.37
 d$flu[d$Year=='2006'] <- 2.76
 d$flu[d$Year=='2007'] <- 1.2
