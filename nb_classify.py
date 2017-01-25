@@ -81,7 +81,7 @@ def bnb_classify(training_data, target_data):
     for col in list(training_data.columns.values):
         likelihoods[col] = pd.crosstab(training_data["Year_2016"],training_data[col]).apply(lambda r: r/r.sum(), axis=1)
 
-    print likelihoods
+    # print likelihoods
     # where I left things
     # need to estimate probabilities of each category and return class label
     # loop through attributes used for categorization and calculate their likelihoods
