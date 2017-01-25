@@ -4,6 +4,7 @@ import operator
 import numpy as np
 import pandas as pd
 import itertools
+import time
 
 from functools import reduce, partial
 from sklearn.preprocessing import PolynomialFeatures
@@ -244,7 +245,7 @@ def main():
     x = pd.get_dummies(data[cols])
     cols = x.columns.tolist()
     y = data[['Time']].as_matrix()
-    y_bnb = data[['ran_more_than_once']].as_matrix()
+    y_nb = data[['ran_more_than_once']].as_matrix()
 
     d = 3
     poly = PolynomialFeatures(degree=d, interaction_only=True)
