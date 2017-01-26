@@ -11,6 +11,27 @@ from functools import reduce, partial
 from sklearn.preprocessing import PolynomialFeatures
 from scipy.stats import norm
 
+def metrics(y_hat,y):
+    TP = numpy.sum(numpy.logical_and(y_hat == 1, y ==1))
+    TN = numpy.sum(numpy.logical_and(y_hat == 0, y ==0))
+    FP = numpy.sum(numpy.logical_and(y_hat == 1, y ==0))
+    FN = numpy.sum(numpy.logical_and(y_hat == 0, y ==1))
+
+    print('TP: {}, FP: {}, TN: {}, FN: {}'.format(TP,FP,TN,FN))
+
+    accuracy = float(TP + TN)/(TP + FP + FN + TN)
+    precision = float(TP)/(TP + FP)
+    recall = float(TP) / (TP + FN)
+    false_positive_rate = float(FP) / (FP + TN)
+    f1 = 2 * (precision*recall)/(precision+recall)
+
+    
+    print("Accuracy: {:.2f}".format(accuracy))
+    print("Precision: {:.2f}".format(precision))
+    print("Recall: {:.2f}".format(recall))
+    print("False positive rate: {:.2f}".format(false_positive_rate))
+    print("F1 measure: {:.2f}".format(f1))
+
 def timeit(f, s):
     big_s = s[0].upper() + s[1:]
     small_s = s[0].lower() + s[1:]
@@ -168,8 +189,8 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
         return err_632 + (err1_ - err_bar) * (p * q * r) / (1 - q * r)
 
     timed_model = lambda model: timeit(lambda: boot_error(model), "model")
-    return parmap(timed_model, models)
-
+    # return parmap(timed_model, models)
+    return list(map(timed_model, models))
 # def fit_nb(x, y, cols=None):
 
 #     if cols is None: cols = np.arange(len(x[0]))
@@ -318,14 +339,24 @@ def main():
 
     """[array([ 9205624.78741515]) 277616936.81465369 array([ 6877981.18524548]) array([ 6877915.45953581]) array([ 51583531.97679356]) array([  2.75695881e+08]) 277616936.81465369]"""
     model_cols_nb = [["Intercept"],
+                     ["Intercept", "day_no"],
+                     ["Intercept", "temp"],
+                     ["Intercept", "flu"],
+                     ["Intercept", "Sex_F", "Sex_M", "Sex_U"],
                      ["Intercept", "sdTime"],
+                     ["ageFactor_[20,30)", "ageFactor_[30,40)", "ageFactor_[40,50)", "ageFactor_[50,60)", "ageFactor_[60,70)", "ageFactor_[70,80)", "ageFactor_[80,90)", "ageFactor_[90,100]"],
+                     ["Intercept", "day_no", "temp", "flu", "Sex_F", "Sex_M", "Sex_U", "sdTime", "ageFactor_[20,30)", "ageFactor_[30,40)", "ageFactor_[40,50)", "ageFactor_[50,60)", "ageFactor_[60,70)", "ageFactor_[70,80)", "ageFactor_[80,90)", "ageFactor_[90,100]"]
                     ]
     models = list(map(fit_cols_l2, map(col_inds, model_cols)))
     models += list(map(fit_cols, map(col_inds, model_cols)))
-    # models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
+    models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
     print("done preprocessing data")
-    # print(bootstrap(x, y_nb, sq_err, [fit_random], 10, metrics=metrics))
-    print(bootstrap(x, y, sq_err, models, 200, False))
+    
+    nb_err = bootstrap(x, y_nb, sq_err, models_nb, 200, metrics=metrics)
+    # lin_err = bootstrap(x, y, sq_err, models, 200, False)
+
+    print(nb_err)
+    # print(lin_err)
 
 if __name__ == "__main__":
     main()
