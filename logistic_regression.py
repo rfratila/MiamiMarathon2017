@@ -15,7 +15,6 @@ def sigmoid(weight,data):
 
 def error_function(y,weight,data):
 	err = - (numpy.dot(y.transpose(),numpy.log(sigmoid(weight,data))) + numpy.dot((1-y.transpose()),numpy.log((1-sigmoid(weight,data)))))
-	#import pudb; pu.db
 	return err
 
 def functional_error(y_hat,y):
@@ -38,24 +37,25 @@ def train(alpha,weight,data,y):
 		store['error'].append(error_function(y,weight,data)[0][0])
 		store['iteration'].append(i)
 		weight = get_new_weight(alpha,y,weight,data)
-	'''
+	
 	pylab.plot(store['iteration'],store['error'], '-ro',label='Training Error')
 	pylab.xlabel("Iteration")
 	pylab.ylabel("Error")
 	pylab.legend(loc='upper right')
 	pylab.title('Alpha is %.2g'%alpha)
-	print 'Most recent error:',store['error'][-1]
-	print 'Standard deviation between iterations 50 and 100:', numpy.std(store['error'][len(store['error'])/2:])
+	print 'Most recent training error:',store['error'][-1]
+	print 'Standard deviation on latter half of training cycle:', numpy.std(store['error'][len(store['error'])/2:])
 	
 	return weight
-	'''
-	return lambda in_data: sigmoid(weight,in_data)
+	
+	#return lambda in_data: sigmoid(weight,in_data)
 
 #K-Fold cross validation implementation
 def cross_validate(k,alpha,weight,data,y):
 	numpy.random.shuffle(data)
 	
-	chunk = data.shape[0]/k
+	chunk = int(math.ceil(data.shape[0]/k))
+	
 	i=0
 	avg_error = 0
 	collection_weights = []
@@ -65,22 +65,22 @@ def cross_validate(k,alpha,weight,data,y):
 		test_y = y[chunk*i:chunk*i + chunk]
 		train_data = numpy.concatenate((data[:chunk*i],data[chunk*i + chunk:]),axis=0)
 		train_y = numpy.concatenate((y[:chunk*i],y[chunk*i + chunk:]),axis=0)
-
+		#import pudb; pu.db
 		trained_weight = train(alpha,weight,train_data,train_y)
 		collection_weights.append(trained_weight)
 		error = 0
 		print ('Testing on chunk [%d,%d]. Training on the rest...'%(chunk*i,chunk*i + chunk))
-		for index,test_case in enumerate(test_data):
-			error += error_function(test_y[index],trained_weight,test_case)
-			#print error_function(test_y[index],trained_weight,test_case)
-		
-		error /= test_data.shape[0]
+		error = error_function(test_y,trained_weight,test_data)[0][0]
+
+		#import pudb; pu.db
+		#error /= test_data.shape[0]
+
 		avg_error += error
 		i +=1
 
-	avg_error /= (data.shape[0]/k)   #Divide by the total amount of folds trained on
+	avg_error /= k   #Divide by the total amount of folds trained on
 
-	print("Average error of",avg_error,"where the alpha is", alpha, "in",time.time()-start_time,"seconds")
+	print("Average testing error of",avg_error,"where the alpha is", alpha, "in",time.time()-start_time,"seconds")
 
 	return collection_weights
 
@@ -91,6 +91,7 @@ def calculate_metrics(y_hat,y):
 	FN = numpy.sum(numpy.logical_and(y_hat == 0, y ==1))
 
 	print('TP: {}, FP: {}, TN: {}, FN: {}'.format(TP,FP,TN,FN))
+
 
 	accuracy = float(TP + TN)/(TP + FP + FN + TN)
 	precision = float(TP)/(TP + FP)
@@ -121,22 +122,23 @@ def main():
 	'''
 	
 	#data = numpy.array([my_data['Age Category']]).transpose()
-	data = numpy.array([my_data[my_data['Year'] == 2016]['Age Category'],
-						my_data[my_data['Year'] == 2016]['temp'],
-						my_data[my_data['Year'] == 2016]['day_no']]).transpose()
+	data = numpy.array([my_data[my_data['Year'] != 2016]['Age Category'],
+						my_data[my_data['Year'] != 2016]['temp'],
+						my_data[my_data['Year'] != 2016]['day_no']]).transpose()
 
 	#data = numpy.random.random((data.shape))
 	d = numpy.concatenate((data,numpy.ones((data.shape[0],1))),axis=1) #for the intercept weight
 
 	w = numpy.random.random((d.shape[1],1))
-	y = numpy.array([my_data[my_data['Year'] == 2016]['ran_more_than_once']]).transpose()
+	y = numpy.array([my_data[my_data['Year'] != 2016]['ran_more_than_once']]).transpose()
 	#y = numpy.ones((y.shape))
-	my_train = partial(train,1e-8,w)
-	'''
+	
+	
 	y_hat = numpy.round(sigmoid(w,d))
 	calculate_metrics(y_hat,y)
 	
 	#train(0.0001,w,d,y)
+	'''
 	init_val = 1
 	for a in alpha:
 		pylab.subplot(5,4,init_val)
@@ -144,11 +146,14 @@ def main():
 		init_val+=1
 	pylab.show()
 	import pudb; pu.db
+	'''
+	coll = cross_validate(2,1e-8,w,d,y)
 	#for a in alpha:
 	#	coll = cross_validate(10,a,w,d,y)
 	'''
+	my_train = partial(train,1e-8,w)
 	print(bootstrap(d,y,functional_error,[my_train],num_samples=200))
-	
+	'''
 	
 		
 if __name__ == "__main__":
