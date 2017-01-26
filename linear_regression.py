@@ -174,10 +174,10 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
             q1 = sum(map(lambda t: t == 1, y_hat))/n
             gamma = p1 * (1 - q1) + q1 * (1 - p1)
         else:
-            gamma = err_bar
-            # unary_loss = lambda a: loss_fun(*a)
-            # loss_vector = map(unary_loss, itertools.product(y_hat, y))
-            # gamma = sum(loss_vector)/n/n
+            # gamma = err_bar
+            unary_loss = lambda a: loss_fun(*a)
+            loss_vector = map(unary_loss, itertools.product(y_hat, y))
+            gamma = sum(loss_vector)/n/n
         
         if err_1 > err_bar and gamma > err_bar:
             r = (err_1 - err_bar)/(gamma - err_bar)
@@ -189,7 +189,7 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
         return err_632 + (err1_ - err_bar) * (p * q * r) / (1 - q * r)
 
     timed_model = lambda model: timeit(lambda: boot_error(model), "model")
-    return parmap(timed_model, models)
+    return np.array(parmap(timed_model, models, nprocs=4))
     # return list(map(timed_model, models))
 
 # def fit_nb(x, y, cols=None):
@@ -352,12 +352,19 @@ def main():
     models += list(map(fit_cols, map(col_inds, model_cols)))
     models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
     print("done preprocessing data")
-    
-    nb_err = bootstrap(x, y_nb, sq_err, models_nb, 200, metrics=metrics)
-    # lin_err = bootstrap(x, y, sq_err, models, 200, False)
+    """
+    no gamma
+    [9207919.4799328502, 9328749.0163590461, 9285539.1400179453, 9208203.9057568274, 8706170.78038962, 9044006.9778151773, 8484216.4469410107, 8182943.1179755609, 9205797.9357130602, 9203041.7292348556, 9172149.7582576536, 9200681.3486754876, 904767611.15838552, 9032923.6743586622, 7047707590860.0156, 31467097795849.438]
+    """
+    """
+    with gamma
+    [array([ 9207976.03871608]), array([ 9329466.2296509]), array([ 9285766.52851998]), array([ 9208464.64897476]), array([ 8706046.52289767]), array([ 9043805.19708479]), array([ 8483899.02871914]), array([ 8182665.9313344]), array([ 9205654.76149543]), array([ 9203007.09567586]), array([ 9172020.67083838]), array([ 9200636.55037275]), array([  2.40854677e+10]), array([ 9032831.67934739]), array([  3.08019192e+13]), array([  2.47768749e+13])]
+    """
+    # nb_err = bootstrap(x, y_nb, sq_err, models_nb, 200, metrics=metrics)
+    lin_err = bootstrap(x, y, sq_err, models, 200, False)
 
-    print(nb_err)
-    # print(lin_err)
+    # print(nb_err)
+    print(lin_err)
 
 if __name__ == "__main__":
     main()
