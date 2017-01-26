@@ -189,8 +189,9 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
         return err_632 + (err1_ - err_bar) * (p * q * r) / (1 - q * r)
 
     timed_model = lambda model: timeit(lambda: boot_error(model), "model")
-    # return parmap(timed_model, models)
-    return list(map(timed_model, models))
+    return parmap(timed_model, models)
+    # return list(map(timed_model, models))
+
 # def fit_nb(x, y, cols=None):
 
 #     if cols is None: cols = np.arange(len(x[0]))
