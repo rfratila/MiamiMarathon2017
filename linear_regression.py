@@ -189,7 +189,7 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
         return err_632 + (err1_ - err_bar) * (p * q * r) / (1 - q * r)
 
     timed_model = lambda model: timeit(lambda: boot_error(model), "model")
-    return np.array(parmap(timed_model, models, nprocs=4))
+    return np.array(parmap(timed_model, models, nprocs=2))
     # return list(map(timed_model, models))
 
 # def fit_nb(x, y, cols=None):
@@ -234,7 +234,7 @@ def fit_nb(x, y, cols=None):
                 num = len(np.where(x[rows, col] == val)[0])
                 return (num + 1) / (len(rows) + 2)
             p = {val:p_val_given_c(val) for val in vals}
-            return lambda v: p[v]
+            return lambda v: p[v] if v in p.keys() else 0
         def normal(col):
             rows = np.where(y == cls)[0]
             mean = np.mean(x[rows,col])
@@ -339,34 +339,28 @@ def main():
     id_cols = list(filter(lambda p: "Id_" in p, cols))
 
     """[array([ 9205624.78741515]) 277616936.81465369 array([ 6877981.18524548]) array([ 6877915.45953581]) array([ 51583531.97679356]) array([  2.75695881e+08]) 277616936.81465369]"""
-    model_cols_nb = [#["Intercept"],
-                     #["Intercept", "day_no"],
-                     #["Intercept", "temp"],
-                     #["Intercept", "flu"],
-                     #["Intercept", "Sex_F", "Sex_M", "Sex_U"],
-                     #["Intercept", "sdTime"],
-                     #["ageFactor_[20,30)", "ageFactor_[30,40)", "ageFactor_[40,50)", "ageFactor_[50,60)", "ageFactor_[60,70)", "ageFactor_[70,80)", "ageFactor_[80,90)", "ageFactor_[90,100]"],
-                     ["Intercept", "day_no", "temp", "flu", "Sex_F", "Sex_M", "Sex_U", "sdTime", "ageFactor_[20,30)", "ageFactor_[30,40)", "ageFactor_[40,50)", "ageFactor_[50,60)", "ageFactor_[60,70)", "ageFactor_[70,80)", "ageFactor_[80,90)", "ageFactor_[90,100]"]
+    model_cols_nb = [["day_no"],
+                     ["temp"],
+                     ["flu"],
+                     ["Sex_F", "Sex_M", "Sex_U"],
+                     ["num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7"],
+                     ["ageFactor_[20,30)", "ageFactor_[30,40)", "ageFactor_[40,50)", "ageFactor_[50,60)", "ageFactor_[60,70)", "ageFactor_[70,80)", "ageFactor_[80,90)"],
+                     ["day_no", "temp", "flu", "Sex_F", "Sex_M", "Sex_U", "ageFactor_[20,30)", "ageFactor_[30,40)", "ageFactor_[40,50)", "ageFactor_[50,60)", "ageFactor_[60,70)", "ageFactor_[70,80)", "ageFactor_[80,90)", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7"]
                     ]
-    models = list(map(fit_cols_l2, map(col_inds, model_cols)))
-    models += list(map(fit_cols, map(col_inds, model_cols)))
+    model_cols_nb.reverse()
+    # models = list(map(fit_cols_l2, map(col_inds, model_cols)))
+    # models += list(map(fit_cols, map(col_inds, model_cols)))
     models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
     print("done preprocessing data")
-
-    """
-    no gamma
-    [9207919.4799328502, 9328749.0163590461, 9285539.1400179453, 9208203.9057568274, 8706170.78038962, 9044006.9778151773, 8484216.4469410107, 8182943.1179755609, 9205797.9357130602, 9203041.7292348556, 9172149.7582576536, 9200681.3486754876, 904767611.15838552, 9032923.6743586622, 7047707590860.0156, 31467097795849.438]
-    """
     """
     with gamma
-    [array([ 9207976.03871608]), array([ 9329466.2296509]), array([ 9285766.52851998]), array([ 9208464.64897476]), array([ 8706046.52289767]), array([ 9043805.19708479]), array([ 8483899.02871914]), array([ 8182665.9313344]), array([ 9205654.76149543]), array([ 9203007.09567586]), array([ 9172020.67083838]), array([ 9200636.55037275]), array([  2.40854677e+10]), array([ 9032831.67934739]), array([  3.08019192e+13]), array([  2.47768749e+13])]
+    [np.array([ 9207976.03871608]), np.array([ 9329466.2296509]), np.array([ 9285766.52851998]), np.array([ 9208464.64897476]), np.array([ 8706046.52289767]), np.array([ 9043805.19708479]), np.array([ 8483899.02871914]), np.array([ 8182665.9313344]), np.array([ 9205654.76149543]), np.array([ 9203007.09567586]), np.array([ 9172020.67083838]), np.array([ 9200636.55037275]), np.array([  2.40854677e+10]), np.array([ 9032831.67934739]), np.array([  3.08019192e+13]), np.array([  2.47768749e+13])]
     """
-    # nb_err = bootstrap(x, y_nb, sq_err, models_nb, 200, metrics=metrics)
-    lin_err = bootstrap(x, y, sq_err, models, 200, False)
+    nb_err = bootstrap(x, y_nb, sq_err, models_nb, 10, metrics=metrics)
+    # lin_err = bootstrap(x, y, sq_err, models, 200, False)
 
-    # print(nb_err)
-    print(lin_err)
-    import pudb; pu.db
+    print(nb_err)
+    # print(lin_err)
 
 if __name__ == "__main__":
     main()
