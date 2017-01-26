@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import itertools
 import time
+import multiprocessing
 
 from functools import reduce, partial
 from sklearn.preprocessing import PolynomialFeatures
@@ -23,6 +24,39 @@ def timeit(f, s):
 
     return x
 
+def parmap(f, X, nprocs=multiprocessing.cpu_count()):
+    """
+    Code adapted from http://stackoverflow.com/revisions/16071616/9
+    """
+
+    def worker(f, q_in, q_out):
+        while True:
+            i, x = q_in.get()
+            if i is None:
+                break
+            q_out.put((i, f(x)))
+
+
+    q_in = multiprocessing.Queue(1)
+    q_out = multiprocessing.Queue()
+
+    worker_args = (f, q_in, q_out)
+    new_worker = lambda: multiprocessing.Process(target=worker, 
+                                                 args=worker_args)
+
+    proc = [new_worker() for _ in range(nprocs)]
+    for p in proc:
+        p.daemon = True
+        p.start()
+
+    sent = [q_in.put((i, x)) for i, x in enumerate(X)]
+    [q_in.put((None, None)) for _ in range(nprocs)]
+    res = [q_out.get() for _ in range(len(sent))]
+
+    [p.join() for p in proc]
+
+    return [x for i, x in sorted(res)]
+
 def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metrics=None):
     """
     Input:
@@ -39,7 +73,7 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
             the bootstrap error calculation.
 
     Output:
-        err - numpy array with a ".632+ bootstrap error" as described by
+        err - list with a ".632+ bootstrap error" as described by
             Efron, Tibshirani 1997
     """
 
@@ -93,16 +127,16 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
         n = len(x)
         q = math.pow(1 - 1/n, n)
         p = 1 - q
-        
-        fit = timeit(lambda:fit_model(x, y), "fitting overall model")
-        y_hat = fit(x)
-
-        if metrics is not None: metrics(y_hat, y)
 
         time_sample = lambda x: timeit(lambda:one_sample(n), "Running sample")
+
         all_samples = reduce(operator.add, 
                              map(time_sample, range(num_samples)))
         in_test_set, loss = np.split(all_samples, 2)
+
+        fit = timeit(lambda:fit_model(x, y), "fitting overall model")
+        y_hat = fit(x)
+        if metrics is not None: metrics(y_hat, y)
 
         if any(in_test_set == 0):
             i_in_test_set = lambda i: in_test_set[i] != 0
@@ -130,11 +164,11 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
             r = 0
 
         err1_ = min(err_1, gamma)
-
+        print(err_632 + (err1_ - err_bar) * (p * q * r) / (1 - q * r))
         return err_632 + (err1_ - err_bar) * (p * q * r) / (1 - q * r)
 
-    timed_model = lambda model: timeit(boot_error(model), "model")
-    return np.array(list(map(timed_model, models)))
+    timed_model = lambda model: timeit(lambda: boot_error(model), "model")
+    return parmap(timed_model, models)
 
 # def fit_nb(x, y, cols=None):
 
@@ -221,17 +255,25 @@ def fit_random(x, y):
 def fit_cols_nb(cols):
     return partial(fit_nb, cols=cols)
 
-def fit_ols(x, y, cols=None):
+def fit_ols(x, y, l2=False, lam=100, cols=None):
     if cols is None: cols = np.arange(len(x[0]))
     x = x[:,cols]
+    n = len(cols)
 
-    xtx_1 = np.linalg.inv(np.dot(np.transpose(x), x))
+    if l2:
+        xtx_1 = np.linalg.inv(np.dot(np.transpose(x), x) + lam*np.identity(n))
+    else:
+        xtx_1 = np.linalg.inv(np.dot(np.transpose(x), x))
+
     beta = np.dot(np.dot(xtx_1, np.transpose(x)), y)
 
     return lambda x: np.dot(x[:,cols], beta)
 
 def fit_cols(cols):
     return partial(fit_ols, cols=cols)
+
+def fit_cols_l2(cols):
+    return partial(fit_ols, cols=cols, l2=True)
 
 def sq_err(y_hat, y):
     return (y_hat - y)**2
@@ -244,46 +286,44 @@ def main():
     data['Year'] = data["Year"].astype('category', ordered=True)
     data['Id'] = data["Id"].astype('category', ordered=False)
     cols = data.columns.tolist()
-    list(map(cols.remove, ["Age Category", "Year"]))
+    list(map(cols.remove, ["Age Category", "Id", "Year"]))
     x = pd.get_dummies(data[cols])
     cols = x.columns.tolist()
     y = data[['Time']].as_matrix()
     y_nb = data[['ran_more_than_once']].as_matrix()
 
-    # d = 3
-    # poly = PolynomialFeatures(degree=d, interaction_only=True)
-    # x = poly.fit_transform(x)
+    d = 3
+    poly = PolynomialFeatures(degree=d, interaction_only=True)
+    x = poly.fit_transform(x)
 
-    # merge = lambda comb: ":".join(comb)
-    # i_combs = lambda i: map(merge, itertools.combinations(cols, i))
-    # cols = list(itertools.chain.from_iterable(map(i_combs, range(1,d+1))))
-    # cols.insert(0, "Intercept")
-    # cols = np.array(cols)
-
-    x = x.as_matrix()
+    merge = lambda comb: ":".join(comb)
+    i_combs = lambda i: map(merge, itertools.combinations(cols, i))
+    cols = list(itertools.chain.from_iterable(map(i_combs, range(1,d+1))))
+    cols.insert(0, "Intercept")
 
     # x = pd.DataFrame(x, columns=cols).as_matrix()
-    col_inds = lambda names: sum(np.where(cols == name)[0] for name in names)
+    col_inds = lambda names: [cols.index(name) for name in names]
     model_cols = [["Intercept"], 
-                  ["Intercept", "Year"],
                   # ["Intercept", "meanTime"],
                   # ["meanTime"],
+                  ["Intercept", "day_no"],
+                  ["Intercept", "temp"],
+                  ["Intercept", "flu"],
+                  ["Intercept", "Sex_F", "Sex_M", "Sex_U"],
                   ["Intercept", "sdTime"],
-                  # ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime"],
-                  # ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7", "sdTime:num_1", "sdTime:num_2", "sdTime:num_3", "sdTime:num_4", "sdTime:num_5", "sdTime:num_6", "sdTime:num_7", "sdTime:num_>7", "ageFactor_[10,20)", "ageFactor[20,30)", "ageFactor[30,40)", "ageFactor[40,50)", "ageFactor[50,60)", "ageFactor[60,70)", "ageFactor[70,80)", "ageFactor[80,90)", "ageFactor[90,100]"]
+                  ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime"],
+                  ["Intercept", "day_no", "temp", "flu", "day_no:temp", "day_no:flu", "day_no:temp:flu", "temp:flu", "Sex_F", "Sex_M", "Sex_U", "sdTime", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7", "sdTime:num_1", "sdTime:num_2", "sdTime:num_3", "sdTime:num_4", "sdTime:num_5", "sdTime:num_6", "sdTime:num_7", "sdTime:num_>7", "ageFactor_[20,30)", "ageFactor_[30,40)", "ageFactor_[40,50)", "ageFactor_[50,60)", "ageFactor_[60,70)", "ageFactor_[70,80)", "ageFactor_[80,90)", "ageFactor_[90,100]"]
                  ]
     id_cols = list(filter(lambda p: "Id_" in p, cols))
-    model_cols.append(["Intercept"]+id_cols)
 
-    """9.2, 278, 6.9, 6.9, 51, 276, 278"""
     """[array([ 9205624.78741515]) 277616936.81465369 array([ 6877981.18524548]) array([ 6877915.45953581]) array([ 51583531.97679356]) array([  2.75695881e+08]) 277616936.81465369]"""
     model_cols_nb = [["Intercept"],
                      ["Intercept", "sdTime"],
                     ]
-    
-    models = map(fit_cols, map(col_inds, model_cols))
-    models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
-    
+    models = list(map(fit_cols_l2, map(col_inds, model_cols)))
+    models += list(map(fit_cols, map(col_inds, model_cols)))
+    # models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
+    print("done preprocessing data")
     # print(bootstrap(x, y_nb, sq_err, [fit_random], 10, metrics=metrics))
     print(bootstrap(x, y, sq_err, models, 200, False))
 
