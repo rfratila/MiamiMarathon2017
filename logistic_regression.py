@@ -32,27 +32,31 @@ def get_new_weight(alpha,y,weight,data):
 	new_w = weight + alpha * deriv_error(y,weight,data)
 	return new_w
 
-#Given the necessary parameters, 
+#Given the necessary parameters, it will output the new trained weights
+#Uncomment the lines for printing the training graph
 def train(alpha,weight,data,y):
 
 	store = OrderedDict(error=[],iteration=[])
 	for i in xrange(1000):
 		store['error'].append(error_function(y,weight,data)[0][0])
-		store['iteration'].append(i)
+		#store['iteration'].append(i)
 		weight = get_new_weight(alpha,y,weight,data)
 		#print error_function(y,weight,data)[0][0]
 	
-	pylab.plot(store['iteration'],store['error'], '-ro',label='Training Error')
-	pylab.xlabel("Iteration")
-	pylab.ylabel("Error")
-	pylab.legend(loc='upper right')
-	pylab.title('Alpha is %.2g'%1)
+	#pylab.subplot(1,1,1)
+	#pylab.plot(store['iteration'],store['error'], '-ro',label='Training Error')
+	#pylab.xlabel("Iteration")
+	#pylab.ylabel("Error")
+	#pylab.legend(loc='upper right')
+	#pylab.title('Alpha is %.2g'%alpha)
+	#pylab.show()
 	print 'Most recent training error:',store['error'][-1]
 	print 'Standard deviation on latter half of training cycle:', numpy.std(store['error'][len(store['error'])/2:])
 	
+	
 	return weight
 	
-	#return lambda in_data: sigmoid(weight,in_data)
+	#return lambda in_data: sigmoid(weight,in_data) #Used for bootstrap
 
 #K-Fold cross validation implementation
 def cross_validate(k,alpha,weight,data,y):
@@ -69,7 +73,7 @@ def cross_validate(k,alpha,weight,data,y):
 		test_y = y[chunk*i:chunk*i + chunk]
 		train_data = numpy.concatenate((data[:chunk*i],data[chunk*i + chunk:]),axis=0)
 		train_y = numpy.concatenate((y[:chunk*i],y[chunk*i + chunk:]),axis=0)
-		#import pudb; pu.db
+
 		trained_weight = train(alpha,weight,train_data,train_y)
 		collection_weights.append(trained_weight)
 		error = 0
@@ -123,7 +127,7 @@ def main():
 	list(map(cols.remove, ["Age Category", "Id", "Year"]))
 	x = pandas.get_dummies(my_data[cols])
 	
-	#Extract the features
+	#Extract the features from the data and generate a model
 	data = numpy.array([x['ageFactor_[20,30)'],x['ageFactor_[30,40)'],x['ageFactor_[40,50)'],x['ageFactor_[50,60)'],x['ageFactor_[70,80)'],x['ageFactor_[80,90)'],
 						x['temp'],
 						x['num_1'],x['num_2'],x['num_3'],x['num_4'],x['num_5'],x['num_6'],x['num_7'],x['num_>7'],
@@ -142,7 +146,7 @@ def main():
 	w = numpy.random.random((d.shape[1],1))
 	
 	
-	#y_hat = numpy.round(sigmoid(w,d)); calculate_metrics(y_hat,y)
+	#y_hat = numpy.round(sigmoid(w,d)); calculate_metrics(y_hat,y) #Use to make sure weights are training. This is the starting point
 	
 	numpy.random.shuffle(d)
 	
@@ -150,13 +154,11 @@ def main():
 	train_y = y[:int(math.ceil(training_reserve*d.shape[0]))]
 	test_data = d[int(math.ceil(training_reserve*d.shape[0])):]
 	test_y = y[int(math.ceil(training_reserve*d.shape[0])):]
-	pylab.subplot(1,1,1)
-	w = train(1e-9,w,train_data,train_y)
-	pylab.show()
-	import pudb; pu.db
+	
+	w = train(1,w,train_data,train_y)
+
 	y_hat = numpy.round(sigmoid(w,test_data)); calculate_metrics(y_hat,test_y)
 	
-	#w = train(1,w,d,y)
 	
 	#Use to locate a decent alpha value
 	'''
@@ -165,21 +167,25 @@ def main():
 		pylab.subplot(5,4,init_val)
 		train(a,w,train_data,train_y) # for Age Category
 		init_val+=1
-	pylab.show()
 	'''
-	'''
+	
+
 	#Use for k-fold crosss validation
+	'''
 	coll_of_weights = cross_validate(20,1e-8,w,d,y)
 	
 	for weight in coll_of_weights:	
 		y_hat = numpy.round(sigmoid(weight,d)); calculate_metrics(y_hat,y)
 	
-	import pudb; pu.db
 	'''
+
+	#Fine-tune alpha choice 
 	'''
 	#for a in alpha:
-	#	coll = cross_validate(10,a,w,d,y)
+	#	coll = cross_validate(10,a,w,d,y) # Based on computational budget
 	'''
+
+	#Used for bootstrap validation
 	'''
 	my_train = partial(train,1,w)
 	print(bootstrap(d,y,functional_error,[my_train],num_samples=200))
