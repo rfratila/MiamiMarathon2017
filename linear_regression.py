@@ -12,10 +12,24 @@ from sklearn.preprocessing import PolynomialFeatures
 from scipy.stats import norm
 
 def metrics(y_hat,y):
-    TP = np.sum(numpy.logical_and(y_hat == 1, y ==1))
-    TN = np.sum(numpy.logical_and(y_hat == 0, y ==0))
-    FP = np.sum(numpy.logical_and(y_hat == 1, y ==0))
-    FN = np.sum(numpy.logical_and(y_hat == 0, y ==1))
+    """
+    Calculates accuracy, precision, recall, false positive rate, and
+    F1 measure and prints them. 
+
+    Input: 
+        y_hat - vector of predictions
+        y - vector of truth
+
+    Output:
+        None
+
+    Note: metrics() pulled from logistic_regression.py because python 
+    wouldn't let me import them. 
+    """
+    TP = np.sum(np.logical_and(y_hat == 1, y ==1))
+    TN = np.sum(np.logical_and(y_hat == 0, y ==0))
+    FP = np.sum(np.logical_and(y_hat == 1, y ==0))
+    FN = np.sum(np.logical_and(y_hat == 0, y ==1))
 
     print('TP: {}, FP: {}, TN: {}, FN: {}'.format(TP,FP,TN,FN))
 
@@ -34,7 +48,17 @@ def metrics(y_hat,y):
 
 def timeit(f, s):
     """
-    Helper function to time 
+    Helper function to time a function and print a string before and
+    after execution.
+
+    Input:
+        f - Function with 0 arguments. The output of this function wil
+            be returned from timeit.
+        s - String, printed before running f() as "S..." and after
+            running f() as "Done s..."
+
+    Output:
+        x - output of f()
     """
     big_s = s[0].upper() + s[1:]
     small_s = s[0].lower() + s[1:]
@@ -50,7 +74,17 @@ def timeit(f, s):
 
 def parmap(f, X, nprocs=multiprocessing.cpu_count()):
     """
-    Code adapted from http://stackoverflow.com/revisions/16071616/9
+    Paralellized map. 
+
+    Input:
+        f - monoid to be applied to each element of X
+        X - iterable with each element in the domain of f
+
+    Output:
+        y - equivalent to [f(x) for x in X]
+
+    Note: Code adapted from 
+    http://stackoverflow.com/revisions/16071616/9.
     """
 
     def worker(f, q_in, q_out):
@@ -192,29 +226,35 @@ def bootstrap(x, y, loss_fun, models, num_samples=200, binary_outcome=True, metr
         return err_632 + (err1_ - err_bar) * (p * q * r) / (1 - q * r)
 
     timed_model = lambda model: timeit(lambda: boot_error(model), "model")
-    return np.array(parmap(timed_model, models, nprocs=2))
+    return np.array(parmap(timed_model, models))
     # return list(map(timed_model, models))
 
-# def fit_nb(x, y, cols=None):
+def fit_bnb(x, y, cols=None):
+    """
+    Fits a binary naive Bayes model using the columns of the data
+    specified by cols. 
 
-#     if cols is None: cols = np.arange(len(x[0]))
-#     x = x[:,cols]
+    Input:
+        x - the data 
+    """
+    if cols is None: cols = np.arange(len(x[0]))
+    x = x[:,cols]
 
-#     p1 = np.mean(y) # probability(y == 1)
-#     p = [1-p1, p1]
+    p1 = np.mean(y) # probability(y == 1)
+    p = [1-p1, p1]
 
-#     def prob_c(cls):
-#         def bernoulli(col):
-#             rows = np.where(y == cls)[0]
-#             return (np.sum(x[rows, col]) + 1) / (len(rows) + 2)
-#         return np.array(list(map(bernoulli, range(len(cols)))))
+    def prob_c(cls):
+        def bernoulli(col):
+            rows = np.where(y == cls)[0]
+            return (np.sum(x[rows, col]) + 1) / (len(rows) + 2)
+        return np.array(list(map(bernoulli, range(len(cols)))))
 
-#     cond_probs = np.array(list(map(prob_c, range(2))))
-#     log_probs = np.transpose(np.log(cond_probs))
+    cond_probs = np.array(list(map(prob_c, range(2))))
+    log_probs = np.transpose(np.log(cond_probs))
 
-#     argmax = lambda x: np.argmax(x, 1).reshape(len(x), 1)
+    argmax = lambda x: np.argmax(x, 1).reshape(len(x), 1)
 
-#     return lambda x: argmax(np.log(p) + np.dot(x[:,cols], log_probs))
+    return lambda x: argmax(np.log(p) + np.dot(x[:,cols], log_probs))
 
 def fit_nb(x, y, cols=None):
 
