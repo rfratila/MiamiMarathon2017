@@ -8,6 +8,8 @@ import time
 from collections import OrderedDict
 import pylab
 
+from linear_regression import sq_err
+
 def sigmoid(weight,data):
 	prob = 1/(1 + numpy.exp( -numpy.dot(data,weight) ))
 
@@ -30,19 +32,21 @@ def get_new_weight(alpha,y,weight,data):
 	new_w = weight + alpha * deriv_error(y,weight,data)
 	return new_w
 
+#Given the necessary parameters, 
 def train(alpha,weight,data,y):
-	#numpy.random.shuffle(data)
+
 	store = OrderedDict(error=[],iteration=[])
 	for i in xrange(1000):
 		store['error'].append(error_function(y,weight,data)[0][0])
 		store['iteration'].append(i)
 		weight = get_new_weight(alpha,y,weight,data)
+		#print error_function(y,weight,data)[0][0]
 	
 	pylab.plot(store['iteration'],store['error'], '-ro',label='Training Error')
 	pylab.xlabel("Iteration")
 	pylab.ylabel("Error")
 	pylab.legend(loc='upper right')
-	pylab.title('Alpha is %.2g'%alpha)
+	pylab.title('Alpha is %.2g'%1)
 	print 'Most recent training error:',store['error'][-1]
 	print 'Standard deviation on latter half of training cycle:', numpy.std(store['error'][len(store['error'])/2:])
 	
@@ -71,9 +75,7 @@ def cross_validate(k,alpha,weight,data,y):
 		error = 0
 		print ('Testing on chunk [%d,%d]. Training on the rest...'%(chunk*i,chunk*i + chunk))
 		error = error_function(test_y,trained_weight,test_data)[0][0]
-
-		#import pudb; pu.db
-		#error /= test_data.shape[0]
+		y_hat = numpy.round(sigmoid(trained_weight,test_data)); calculate_metrics(y_hat,test_y)
 
 		avg_error += error
 		i +=1
@@ -84,6 +86,7 @@ def cross_validate(k,alpha,weight,data,y):
 
 	return collection_weights
 
+#This method is responsible for calculating the classification metrics
 def calculate_metrics(y_hat,y):
 	TP = numpy.sum(numpy.logical_and(y_hat == 1, y ==1))
 	TN = numpy.sum(numpy.logical_and(y_hat == 0, y ==0))
@@ -91,14 +94,15 @@ def calculate_metrics(y_hat,y):
 	FN = numpy.sum(numpy.logical_and(y_hat == 0, y ==1))
 
 	print('TP: {}, FP: {}, TN: {}, FN: {}'.format(TP,FP,TN,FN))
-
-
-	accuracy = float(TP + TN)/(TP + FP + FN + TN)
-	precision = float(TP)/(TP + FP)
-	recall = float(TP) / (TP + FN)
-	false_positive_rate = float(FP) / (FP + TN)
-	f1 = 2 * (precision*recall)/(precision+recall)
-
+	accuracy = precision = recall = f1 = false_positive_rate = 0.0
+	try:
+		accuracy = float(TP + TN)/(TP + FP + FN + TN)
+		precision = float(TP)/(TP + FP)
+		recall = float(TP) / (TP + FN)
+		false_positive_rate = float(FP) / (FP + TN)
+		f1 = 2 * (precision*recall)/(precision+recall)
+	except ZeroDivisionError:
+		print('Cannot compute all metrics. Check predictions.')
 	
 	print("Accuracy: {:.2f}".format(accuracy))
 	print("Precision: {:.2f}".format(precision))
@@ -108,50 +112,76 @@ def calculate_metrics(y_hat,y):
 
 def main():
 	training_reserve = 0.7
-	validation_reserve = 0.2
-	testing_reserve = 0.1
-	alpha = [1e9,1e8,1e7,1e6,1e5,1e4,1e3,1e2,1e1,1e0,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10]           #learning rate
-	my_data = pandas.read_csv('full_data.csv',sep=',')
-	'''
-	data = pd.read_csv("full_data.csv")
-    data['Year'] = data["Year"].astype('category', ordered=True)
-    cols = data.columns.tolist()
-    list(map(cols.remove, ["Age Category", "Id", "Year"]))
-    x = pd.get_dummies(data[cols])
-    cols = x.columns.tolist()
-	'''
-	
-	#data = numpy.array([my_data['Age Category']]).transpose()
-	data = numpy.array([my_data[my_data['Year'] != 2016]['Age Category'],
-						my_data[my_data['Year'] != 2016]['temp'],
-						my_data[my_data['Year'] != 2016]['day_no']]).transpose()
 
-	#data = numpy.random.random((data.shape))
+	#A list of alphas to experiment on when using a new model
+	alpha = [1e9,1e8,1e7,1e6,1e5,1e4,1e3,1e2,1e1,1e0,1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7,1e-8,1e-9,1e-10]           #learning rate
+	#alpha = [1e-8,1e-9,1e-10,1e-11,1e-12,1e-13,1e-14]  #More alphas to try iff the first set doesn't yield a good alpha
+	my_data = pandas.read_csv('full_data.csv',sep=',')
+	
+	#Categorize the features
+	cols = my_data.columns.tolist()
+	list(map(cols.remove, ["Age Category", "Id", "Year"]))
+	x = pandas.get_dummies(my_data[cols])
+	
+	#Extract the features
+	data = numpy.array([x['ageFactor_[20,30)'],x['ageFactor_[30,40)'],x['ageFactor_[40,50)'],x['ageFactor_[50,60)'],x['ageFactor_[70,80)'],x['ageFactor_[80,90)'],
+						x['temp'],
+						x['num_1'],x['num_2'],x['num_3'],x['num_4'],x['num_5'],x['num_6'],x['num_7'],x['num_>7'],
+						x['Sex_F'],
+						x['Sex_M'],
+						x['Sex_U'],
+						x['day_no'],
+						x['flu'],
+						]).transpose()
+	
 	d = numpy.concatenate((data,numpy.ones((data.shape[0],1))),axis=1) #for the intercept weight
 
+	
+	y = numpy.array([x['ran_more_than_once']]).transpose()
+
 	w = numpy.random.random((d.shape[1],1))
-	y = numpy.array([my_data[my_data['Year'] != 2016]['ran_more_than_once']]).transpose()
-	#y = numpy.ones((y.shape))
 	
 	
-	y_hat = numpy.round(sigmoid(w,d))
-	calculate_metrics(y_hat,y)
+	#y_hat = numpy.round(sigmoid(w,d)); calculate_metrics(y_hat,y)
 	
-	#train(0.0001,w,d,y)
+	numpy.random.shuffle(d)
+	
+	train_data = d[:int(math.ceil(training_reserve*d.shape[0]))]
+	train_y = y[:int(math.ceil(training_reserve*d.shape[0]))]
+	test_data = d[int(math.ceil(training_reserve*d.shape[0])):]
+	test_y = y[int(math.ceil(training_reserve*d.shape[0])):]
+	pylab.subplot(1,1,1)
+	w = train(1e-9,w,train_data,train_y)
+	pylab.show()
+	import pudb; pu.db
+	y_hat = numpy.round(sigmoid(w,test_data)); calculate_metrics(y_hat,test_y)
+	
+	#w = train(1,w,d,y)
+	
+	#Use to locate a decent alpha value
 	'''
 	init_val = 1
 	for a in alpha:
 		pylab.subplot(5,4,init_val)
-		train(a,w,d,y) # for Age Category
+		train(a,w,train_data,train_y) # for Age Category
 		init_val+=1
 	pylab.show()
+	'''
+	'''
+	#Use for k-fold crosss validation
+	coll_of_weights = cross_validate(20,1e-8,w,d,y)
+	
+	for weight in coll_of_weights:	
+		y_hat = numpy.round(sigmoid(weight,d)); calculate_metrics(y_hat,y)
+	
 	import pudb; pu.db
 	'''
-	coll = cross_validate(2,1e-8,w,d,y)
+	'''
 	#for a in alpha:
 	#	coll = cross_validate(10,a,w,d,y)
 	'''
-	my_train = partial(train,1e-8,w)
+	'''
+	my_train = partial(train,1,w)
 	print(bootstrap(d,y,functional_error,[my_train],num_samples=200))
 	'''
 	
