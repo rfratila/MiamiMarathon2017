@@ -12,10 +12,10 @@ from sklearn.preprocessing import PolynomialFeatures
 from scipy.stats import norm
 
 def metrics(y_hat,y):
-    TP = numpy.sum(numpy.logical_and(y_hat == 1, y ==1))
-    TN = numpy.sum(numpy.logical_and(y_hat == 0, y ==0))
-    FP = numpy.sum(numpy.logical_and(y_hat == 1, y ==0))
-    FN = numpy.sum(numpy.logical_and(y_hat == 0, y ==1))
+    TP = np.sum(numpy.logical_and(y_hat == 1, y ==1))
+    TN = np.sum(numpy.logical_and(y_hat == 0, y ==0))
+    FP = np.sum(numpy.logical_and(y_hat == 1, y ==0))
+    FN = np.sum(numpy.logical_and(y_hat == 0, y ==1))
 
     print('TP: {}, FP: {}, TN: {}, FN: {}'.format(TP,FP,TN,FN))
 
@@ -33,6 +33,9 @@ def metrics(y_hat,y):
     print("F1 measure: {:.2f}".format(f1))
 
 def timeit(f, s):
+    """
+    Helper function to time 
+    """
     big_s = s[0].upper() + s[1:]
     small_s = s[0].lower() + s[1:]
 
@@ -292,6 +295,9 @@ def fit_ols(x, y, l2=False, lam=100, cols=None):
     return lambda x: np.dot(x[:,cols], beta)
 
 def fit_cols(cols):
+    """
+
+    """
     return partial(fit_ols, cols=cols)
 
 def fit_cols_l2(cols):
@@ -322,9 +328,8 @@ def main():
     i_combs = lambda i: map(merge, itertools.combinations(cols, i))
     cols = list(itertools.chain.from_iterable(map(i_combs, range(1,d+1))))
     cols.insert(0, "Intercept")
-
-    # x = pd.DataFrame(x, columns=cols).as_matrix()
     col_inds = lambda names: [cols.index(name) for name in names]
+
     model_cols = [["Intercept"], 
                   # ["Intercept", "meanTime"],
                   # ["meanTime"],
@@ -338,7 +343,6 @@ def main():
                  ]
     id_cols = list(filter(lambda p: "Id_" in p, cols))
 
-    """[array([ 9205624.78741515]) 277616936.81465369 array([ 6877981.18524548]) array([ 6877915.45953581]) array([ 51583531.97679356]) array([  2.75695881e+08]) 277616936.81465369]"""
     model_cols_nb = [["day_no"],
                      ["temp"],
                      ["flu"],
@@ -348,14 +352,12 @@ def main():
                      ["day_no", "temp", "flu", "Sex_F", "Sex_M", "Sex_U", "ageFactor_[20,30)", "ageFactor_[30,40)", "ageFactor_[40,50)", "ageFactor_[50,60)", "ageFactor_[60,70)", "ageFactor_[70,80)", "ageFactor_[80,90)", "num_1", "num_2", "num_3", "num_4", "num_5", "num_6", "num_7", "num_>7"]
                     ]
     model_cols_nb.reverse()
+
     # models = list(map(fit_cols_l2, map(col_inds, model_cols)))
     # models += list(map(fit_cols, map(col_inds, model_cols)))
     models_nb = list(map(fit_cols_nb, map(col_inds, model_cols_nb)))
     print("done preprocessing data")
-    """
-    with gamma
-    [np.array([ 9207976.03871608]), np.array([ 9329466.2296509]), np.array([ 9285766.52851998]), np.array([ 9208464.64897476]), np.array([ 8706046.52289767]), np.array([ 9043805.19708479]), np.array([ 8483899.02871914]), np.array([ 8182665.9313344]), np.array([ 9205654.76149543]), np.array([ 9203007.09567586]), np.array([ 9172020.67083838]), np.array([ 9200636.55037275]), np.array([  2.40854677e+10]), np.array([ 9032831.67934739]), np.array([  3.08019192e+13]), np.array([  2.47768749e+13])]
-    """
+
     nb_err = bootstrap(x, y_nb, sq_err, models_nb, 10, metrics=metrics)
     # lin_err = bootstrap(x, y, sq_err, models, 200, False)
 
